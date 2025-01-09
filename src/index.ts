@@ -2,22 +2,46 @@ import { WebSocket, WebSocketServer } from "ws";
 
 const wss = new WebSocketServer({port: 8000});
 
-let userCount = 0;
-let allSockets: WebSocket[] = [];
-wss.on("connection",(socket) => {
-    allSockets.push(socket);
+interface User {
+    socket: WebSocket;
+    room: string;
+}
 
-    userCount += 1;
-    console.log("user connected" + userCount);
+
+let allSockets: User[] = [];
+
+
+wss.on("connection",(socket) => {
+   
     
     socket.on("message", (message) => {
-        console.log("messsage recieved " + message.toString())
-        for (let i = 0; i< allSockets.length; i++){
-            const s = allSockets[i];
-            s.send(message.toString() + ":sent from server");
+        // {"type": "join" ..}
+        // @ts-ignore
+        const parsedMessage = JSON.parse(message);
+        if (parsedMessage.type === "join") {
+            allSockets.push({
+                socket,
+                room: parsedMessage.payload.roomId
+            })
+        }
+
+        if (parsedMessage.type == "chat"){
+            let currentUserRoom = null;
+            for (let i = 0; i < allSockets.length; i++){
+                if (allSockets[i].socket == socket){
+                    currentUserRoom = allSockets[i].room
+                }
+            }
+        
+            for (let i = 0; i < allSockets.length; i++){
+                if(allSockets[i].room == currentUserRoom){
+                    allSockets[i].socket.send(parsedMessage.payload.message)
+                }
+            }
         }
         
     })
+        
 })
 
 
